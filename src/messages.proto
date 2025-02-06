@@ -1,0 +1,77 @@
+syntax = "proto3";
+package messages;
+
+message ChatMessage {
+  oneof message_kind {
+  ClientMessage cli = 1;
+  ServerMessage srv = 2;
+  ErrorMessage err = 3;
+  }
+}
+message ErrorMessage {
+  string error_type = 1;
+  string error_message = 2;
+}
+message ClientMessage {
+  oneof message_kind_cli {
+    Register register_request = 1;
+    RequestChannels request_channels = 2;
+    JoinChannel join = 3;
+    LeaveChannel leave = 4;
+    SendMessage send_msg = 5;
+  }
+}
+message Register {
+  string username = 1;
+}
+message RequestChannels {
+
+}
+message JoinChannel {
+  fixed64 channel_id = 1;
+}
+message LeaveChannel {
+  fixed64 channel_id = 1;
+}
+message SendMessage {
+  string message = 1;
+  fixed64 channel_id = 2;
+}
+
+
+
+
+message ServerMessage {
+oneof message_kind_srv {
+    ConfirmRegistration confirm_reg = 1;
+    ChannelsList return_channels = 2;
+    ChannelResponse channel_data = 3;
+    MessageData distribute_message = 4;
+  }
+}
+
+message ConfirmRegistration {
+  bool successful = 1;
+  optional string error = 2;
+}
+message ChannelsList {
+  repeated Channel channels = 1;
+}
+message Channel {
+  string channel_name = 1;
+  fixed64 channel_id = 2;
+  bool channel_is_group = 3;
+}
+
+message ChannelResponse {
+  bool channel_exists = 1;
+  string channel_name = 2;
+  bool channel_is_group = 3;
+  repeated string connected_clients = 4;
+}
+message MessageData {
+  string username = 1;
+  uint64 timestamp = 2;
+  string message = 3;
+  fixed64 channel_id = 4;
+}

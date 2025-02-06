@@ -1,0 +1,17 @@
+[package]
+name = "chat_common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = "0.13"
+wg_2024 = { git = "https://github.com/WGL-2024/WGL_repo_2024.git", features = ["serialize", "debug"] }
+
+petgraph = "0.7"
+common = { git = "https://github.com/Cpp-enjoyers/common"}
+crossbeam = "0.8"
+itertools = "0.14"
+
+
+[build-dependencies]
+prost-build = "0.13"
