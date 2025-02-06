@@ -29,7 +29,7 @@ pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
 }
 
 // Convenience traits to implement common packet handling features
-type HandlerFunction<C, E, H> = Box<dyn FnOnce(&mut PacketHandler<C, E, H>)>;
+pub type HandlerFunction<C, E, H> = Box<dyn FnOnce(&mut PacketHandler<C, E, H>)>;
 pub trait CommandHandler<C, E> {
     fn get_node_type() -> NodeType;
 
