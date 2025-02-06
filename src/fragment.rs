@@ -2,7 +2,10 @@ use crate::messages::ChatMessage;
 use prost::Message;
 use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
 #[allow(dead_code)]
-// This module handles fragmenting / defragmenting a message
+
+/// # Panics
+///
+/// Cannot panic, since the buffer is created with the size of the message.
 pub fn fragment(message: ChatMessage) -> Vec<Fragment> {
     let mut fragments: Vec<Fragment> = Vec::new();
     let mut buf: Vec<u8> = Vec::with_capacity(message.encoded_len());

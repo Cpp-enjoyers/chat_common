@@ -29,25 +29,26 @@ pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
 }
 
 // Convenience traits to implement common packet handling features
+type HandlerFunction<C,E,H> = Box<dyn FnOnce(&mut PacketHandler<C, E, H>)>;
 pub trait CommandHandler<C, E> {
     fn get_node_type() -> NodeType;
 
     fn handle_protocol_message(
         &mut self,
         message: ChatMessage,
-    ) -> Box<dyn FnOnce(&mut PacketHandler<C, E, Self>)>
+    ) -> HandlerFunction<C,E,Self>
     where
         Self: Sized;
     fn report_sent_packet(
         &mut self,
         packet: Packet,
-    ) -> Box<dyn FnOnce(&mut PacketHandler<C, E, Self>)>
+    ) -> HandlerFunction<C,E,Self>
     where
         Self: Sized;
     fn handle_controller_command(
         &mut self,
         command: C,
-    ) -> Box<dyn FnOnce(&mut PacketHandler<C, E, Self>)>
+    ) -> HandlerFunction<C,E,Self>
     where
         Self: Sized;
     fn new() -> Self
