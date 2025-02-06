@@ -29,26 +29,17 @@ pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
 }
 
 // Convenience traits to implement common packet handling features
-type HandlerFunction<C,E,H> = Box<dyn FnOnce(&mut PacketHandler<C, E, H>)>;
+type HandlerFunction<C, E, H> = Box<dyn FnOnce(&mut PacketHandler<C, E, H>)>;
 pub trait CommandHandler<C, E> {
     fn get_node_type() -> NodeType;
 
-    fn handle_protocol_message(
-        &mut self,
-        message: ChatMessage,
-    ) -> HandlerFunction<C,E,Self>
+    fn handle_protocol_message(&mut self, message: ChatMessage) -> HandlerFunction<C, E, Self>
     where
         Self: Sized;
-    fn report_sent_packet(
-        &mut self,
-        packet: Packet,
-    ) -> HandlerFunction<C,E,Self>
+    fn report_sent_packet(&mut self, packet: Packet) -> HandlerFunction<C, E, Self>
     where
         Self: Sized;
-    fn handle_controller_command(
-        &mut self,
-        command: C,
-    ) -> HandlerFunction<C,E,Self>
+    fn handle_controller_command(&mut self, command: C) -> HandlerFunction<C, E, Self>
     where
         Self: Sized;
     fn new() -> Self
@@ -170,7 +161,7 @@ where
                     if let Some(next_hop) = route.next_hop() {
                         if let Some(sender) = self.packet_send.get(&next_hop) {
                             let _ = sender.send(packet.clone());
-                            let _ = self.handler.report_sent_packet(packet.clone())(self);
+                            self.handler.report_sent_packet(packet.clone())(self);
                             failed = false;
                         }
                     }
@@ -185,7 +176,7 @@ where
             for (key, (frags, missing)) in self.rx_queue.clone() {
                 if missing.is_empty() {
                     if let Ok(message) = defragment(&frags) {
-                        let _ = self.handler.handle_protocol_message(message)(self);
+                        self.handler.handle_protocol_message(message)(self);
                     } else {
                         // Error: defragmentation failed
                     }
@@ -306,7 +297,7 @@ where
                 );
                 for (packet, node_id) in tx {
                     if let Some(x) = self.packet_send.get(&node_id) {
-                        let _ = self.send_to_controller(packet.clone());
+                        self.send_to_controller(packet.clone());
                         let _ = x.send(packet);
                     }
                 }
