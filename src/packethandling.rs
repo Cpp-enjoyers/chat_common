@@ -1,3 +1,4 @@
+use crate::fragment::defragment;
 use crate::messages::ChatMessage;
 use crate::routing::{NodeInfo, RoutingHelper};
 use common::networking::flooder::Flooder;
@@ -10,7 +11,6 @@ use crossbeam::channel::{select_biased, Receiver, Sender};
 use std::collections::{HashMap, VecDeque};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::{Fragment, NackType, NodeType, Packet, PacketType};
-use crate::fragment::defragment;
 
 pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
     pub routing_helper: RoutingHelper,
@@ -152,15 +152,22 @@ where
         loop {
             if self.flood_flag {
                 self.flood_flag = false;
-                let flood_req = self.routing_helper.generate_flood_requests(self.packet_send.keys().cloned().collect());
-                flood_req.iter().for_each(|x| self.tx_queue_packets.push_back(x.clone()));
+                let flood_req = self
+                    .routing_helper
+                    .generate_flood_requests(self.packet_send.keys().cloned().collect());
+                flood_req
+                    .iter()
+                    .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
             }
             let mut failed_sends = vec![];
-            while let Some((packet, node_id)) = self.tx_queue_packets.pop_front() { 
+            while let Some((packet, node_id)) = self.tx_queue_packets.pop_front() {
                 let mut failed = true;
-                if let Some(route) =  self.routing_helper.generate_source_routing_header(self.node_id, node_id) {
+                if let Some(route) = self
+                    .routing_helper
+                    .generate_source_routing_header(self.node_id, node_id)
+                {
                     if let Some(next_hop) = route.next_hop() {
-                        if let Some(sender) = self.packet_send.get(&next_hop) { 
+                        if let Some(sender) = self.packet_send.get(&next_hop) {
                             let _ = sender.send(packet.clone());
                             let _ = self.handler.report_sent_packet(packet.clone())(self);
                             failed = false;
@@ -171,7 +178,9 @@ where
                     failed_sends.push((packet, node_id));
                 }
             }
-            failed_sends.iter().for_each(|x| self.tx_queue_packets.push_back(x.clone()));
+            failed_sends
+                .iter()
+                .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
             for (key, (frags, missing)) in self.rx_queue.clone() {
                 if missing.is_empty() {
                     if let Ok(message) = defragment(&frags) {
@@ -182,7 +191,7 @@ where
                     self.rx_queue.remove(&key);
                 }
             }
-            
+
             select_biased! {
                 recv(self.controller_recv) -> cmd => {
                     if let Ok(cmd) = cmd {

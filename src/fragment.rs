@@ -23,7 +23,7 @@ pub fn fragment(message: ChatMessage) -> Vec<Fragment> {
     fragments
 }
 #[allow(dead_code)]
-pub fn defragment(fragments: &Vec<[u8;128]>) -> Result<ChatMessage, prost::DecodeError> {
+pub fn defragment(fragments: &Vec<[u8; 128]>) -> Result<ChatMessage, prost::DecodeError> {
     let mut message_data: Vec<u8> = Vec::new();
     for fragment in fragments {
         message_data.extend_from_slice(fragment);

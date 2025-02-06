@@ -156,12 +156,12 @@ impl RoutingHelper {
                 }
                 vec![]
             } else if let Some(nh) = rh.next_hop() {
-                    rh.increase_hop_index();
-                    let p = Packet::new_flood_response(rh.clone(), sid, pkt.clone());
-                    vec![(p, nh)]
-                } else {
-                    vec![]
-                }
+                rh.increase_hop_index();
+                let p = Packet::new_flood_response(rh.clone(), sid, pkt.clone());
+                vec![(p, nh)]
+            } else {
+                vec![]
+            }
         } else {
             vec![]
         }
