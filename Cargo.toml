@@ -8,7 +8,7 @@ prost = "0.13"
 wg_2024 = { git = "https://github.com/WGL-2024/WGL_repo_2024.git", features = ["serialize", "debug"] }
 
 petgraph = "0.7"
-common = { git = "https://github.com/Cpp-enjoyers/common"}
+common = { git = "https://github.com/Cpp-enjoyers/common", branch = "chat_command_change" }
 crossbeam = "0.8"
 itertools = "0.14"
 

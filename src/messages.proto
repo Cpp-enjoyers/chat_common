@@ -6,12 +6,27 @@ message ChatMessage {
   ClientMessage cli = 1;
   ServerMessage srv = 2;
   ErrorMessage err = 3;
+  DiscoveryMessage dsv = 4;
   }
 }
 message ErrorMessage {
   string error_type = 1;
   string error_message = 2;
 }
+message DiscoveryMessage {
+  oneof message_kind_dsv {
+    DiscoveryRequest req = 1;
+    DiscoveryResponse res = 2;
+  }
+}
+message DiscoveryRequest {
+  string server_type_requested = 1;
+}
+message DiscoveryResponse {
+  string server_name = 1;
+  string server_type = 2;
+}
+
 message ClientMessage {
   oneof message_kind_cli {
     Register register_request = 1;
