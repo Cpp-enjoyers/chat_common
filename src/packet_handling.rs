@@ -51,6 +51,8 @@ pub trait CommandHandler<C, E> {
     where
         Self: Sized;
     
+    fn add_node(&mut self, id: NodeId, typ: NodeType) -> Option<(NodeId, ChatMessage)>;
+    
     fn new(id: NodeId) -> Self
     where
         Self: Sized;
@@ -339,6 +341,20 @@ where
                         self.send_to_controller(packet.clone());
                         let _ = x.send(packet);
                     }
+                }
+                let mut to_send = vec![];
+                for id in self.routing_helper.topology_graph.nodes() {
+                    if let Some(data) = self.routing_helper.node_data.get(&id) {
+                        match data.node_type { 
+                            Some(typ) if typ != NodeType::Drone => { 
+                                self.handler.add_node(id,typ).map(|x| to_send.push(x));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                for (i,m) in to_send {
+                    self.send_msg(m,i);
                 }
             }
         }
