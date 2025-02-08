@@ -3,46 +3,34 @@ package messages;
 
 message ChatMessage {
   oneof message_kind {
-  Register cli_register_request = 1;
-  CancelRegistration cli_cancel_reg = 2;
-  RequestChannels cli_request_channels = 3;
+  string cli_register_request = 1; // string is username
+  Empty cli_cancel_reg = 2;
+  Empty cli_request_channels = 3;
   JoinChannel cli_join = 4;
-  LeaveChannel cli_leave = 5;
+  Empty cli_leave = 5;
   SendMessage send_msg = 6;
   ConfirmRegistration srv_confirm_reg = 7;
   ChannelsList srv_return_channels = 8;
-  MessageData srv_distribute_message = 9;
-  ErrorMessage err = 10;
-  DiscoveryRequest dsv_req = 11;
-  DiscoveryResponse dsv_res = 12;
+  fixed64 srv_channel_creation_successful = 9;
+  MessageData srv_distribute_message = 10;
+  ErrorMessage err = 11;
+  string dsv_req = 12; // string is discovery type requested
+  DiscoveryResponse dsv_res = 13;
   }
-  fixed32 own_id = 13;
+  fixed32 own_id = 14;
 }
 message ErrorMessage {
   string error_type = 1;
   string error_message = 2;
-}
-message DiscoveryRequest {
-  string server_type_requested = 1;
 }
 message DiscoveryResponse {
   fixed32 server_id = 1;
   string server_type = 2;
 }
 
-message Register {
-  string username = 1;
-}
-message CancelRegistration {
-}
-message RequestChannels {
-
-}
 message JoinChannel {
-  fixed64 channel_id = 1;
-}
-message LeaveChannel {
-  fixed64 channel_id = 1;
+  optional fixed64 channel_id = 1;
+  string channel_name = 2;
 }
 message SendMessage {
   string message = 1;
@@ -74,3 +62,5 @@ message MessageData {
   string message = 3;
   fixed64 channel_id = 4;
 }
+
+message Empty {}
