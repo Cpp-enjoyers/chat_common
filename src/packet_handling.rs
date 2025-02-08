@@ -11,6 +11,7 @@ use crossbeam::channel::{select_biased, Receiver, Sender};
 use std::collections::{HashMap, VecDeque};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::{Fragment, NackType, NodeType, Packet, PacketType};
+use crate::fragment;
 
 pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
     pub routing_helper: RoutingHelper,
@@ -36,7 +37,7 @@ pub trait CommandHandler<C, E> {
     /// Returns a Vec<(NodeId, Vec<Fragment>)> to add to the tx and fragment queue
     /// Every element in the vector is a list of fragments to send to the corresponding node
     /// The second element is the list of events to be sent to the controller
-    fn handle_protocol_message(&mut self, message: ChatMessage) -> (Vec<(NodeId, Vec<Fragment>)>,Vec<E>)
+    fn handle_protocol_message(&mut self, message: ChatMessage) -> (Vec<(NodeId, ChatMessage)>, Vec<E>)
     where
         Self: Sized;
 
@@ -46,9 +47,10 @@ pub trait CommandHandler<C, E> {
         Self: Sized;
 
     /// Obtains the senders hashmap and returns either a packet to be handled or an event to be sent to the controller
-    fn handle_controller_command(&mut self, sender_hash: &mut HashMap<NodeId, Sender<Packet>>, command: C) -> (Option<Packet>, Vec<E>)
+    fn handle_controller_command(&mut self, sender_hash: &mut HashMap<NodeId, Sender<Packet>>, command: C) -> (Option<Packet>, Vec<(NodeId, ChatMessage)>, Vec<E>)
     where
         Self: Sized;
+    
     fn new() -> Self
     where
         Self: Sized;
@@ -64,6 +66,7 @@ pub trait CommonChatNode<C, E> {
     where
         Self: Sized;
     fn run_node(&mut self);
+    fn send_msg(&mut self, msg: ChatMessage, id: NodeId);
     fn handle_packet(&mut self, packet: Packet, from_shortcut: bool);
     fn remove_sender(&mut self, node_id: NodeId);
     fn add_sender(&mut self, node_id: NodeId, sender: Sender<Packet>);
@@ -184,22 +187,11 @@ where
                 if missing.is_empty() {
                     if let Ok(message) = defragment(&frags) {
                         let (data_to_send, events_to_send) = self.handler.handle_protocol_message(message);
-                        for (node_id, fragments) in data_to_send {
-                            self.sent_fragments.insert(self.cur_session_id, (node_id, fragments.clone()));
-                            for frag in fragments {
-                                self.tx_queue_packets.push_back((
-                                    Packet::new_fragment(
-                                        SourceRoutingHeader::empty_route(),
-                                        self.cur_session_id,
-                                        frag,
-                                    ),
-                                    node_id,
-                                ));
-                            }
-                            self.cur_session_id += 1;
-                        }
                         for event in events_to_send.into_iter() {
                             let _ = self.controller_send.send(event);
+                        }
+                        for (id,msg) in data_to_send {
+                            self.send_msg(msg,id);
                         }
                     } else {
                         // Error: defragmentation failed
@@ -211,12 +203,15 @@ where
             select_biased! {
                 recv(self.controller_recv) -> cmd => {
                     if let Ok(cmd) = cmd {
-                    let (p,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
+                    let (p,m,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
                         if let Some(packet) = p {
                             self.handle_packet(packet, true);
                         }
                         for event in e.into_iter() {
                             let _ = self.controller_send.send(event);
+                        }
+                        for (id,msg) in m {
+                            self.send_msg(msg,id);
                         }
                     }
                 },
@@ -228,6 +223,20 @@ where
             }
         }
     }
+    
+    fn send_msg(&mut self, msg: ChatMessage, id: NodeId) {
+        let fragments = fragment::fragment(msg);
+        self.cur_session_id += 1;
+        for frag in fragments.clone() {
+            self.tx_queue_packets.push_back((Packet::new_fragment(
+                SourceRoutingHeader::empty_route(),
+                self.cur_session_id,
+                frag,
+            ),id));
+        }
+        self.sent_fragments.insert(self.cur_session_id, (id, fragments));
+    }
+    
     fn handle_packet(&mut self, packet: Packet, from_shortcut: bool) {
         match packet.pack_type {
             PacketType::MsgFragment(frag) => {
@@ -379,7 +388,7 @@ where
     }
 
     fn send_to_controller(&self, p: Packet) {
-        let _ = self.controller_send.send(CE::Shortcut(p));
+        let _ = self.controller_send.send(CE::PacketSent(p));
     }
 }
 impl<H: CommandHandler<SC, SE>> Flooder for PacketHandler<SC, SE, H>
@@ -405,6 +414,6 @@ where
     }
 
     fn send_to_controller(&self, p: Packet) {
-        let _ = self.controller_send.send(SE::ShortCut(p));
+        let _ = self.controller_send.send(SE::PacketSent(p));
     }
 }
