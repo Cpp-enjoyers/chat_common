@@ -21,10 +21,12 @@ message DiscoveryMessage {
 }
 message DiscoveryRequest {
   string server_type_requested = 1;
+  fixed32 own_id = 2;
 }
 message DiscoveryResponse {
   string server_name = 1;
   string server_type = 2;
+  fixed32 own_id = 3;
 }
 
 message ClientMessage {

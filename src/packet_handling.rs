@@ -51,7 +51,7 @@ pub trait CommandHandler<C, E> {
     where
         Self: Sized;
     
-    fn new() -> Self
+    fn new(id: NodeId) -> Self
     where
         Self: Sized;
 }
@@ -142,7 +142,7 @@ where
             packet_recv,
             packet_send,
             seen_flood_ids: RingBuffer::with_capacity(1024),
-            handler: H::new(),
+            handler: H::new(id),
             tx_queue_packets: Default::default(),
             sent_fragments: Default::default(),
             rx_queue: Default::default(),
