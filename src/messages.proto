@@ -4,13 +4,13 @@ package messages;
 message ChatMessage {
   oneof message_kind {
   Register cli_register_request = 1;
-  RequestChannels cli_request_channels = 2;
-  JoinChannel cli_join = 3;
-  LeaveChannel cli_leave = 4;
-  SendMessage send_msg = 5;
-  ConfirmRegistration srv_confirm_reg = 6;
-  ChannelsList srv_return_channels = 7;
-  ChannelResponse srv_channel_data = 8;
+  CancelRegistration cli_cancel_reg = 2;
+  RequestChannels cli_request_channels = 3;
+  JoinChannel cli_join = 4;
+  LeaveChannel cli_leave = 5;
+  SendMessage send_msg = 6;
+  ConfirmRegistration srv_confirm_reg = 7;
+  ChannelsList srv_return_channels = 8;
   MessageData srv_distribute_message = 9;
   ErrorMessage err = 10;
   DiscoveryRequest dsv_req = 11;
@@ -32,6 +32,8 @@ message DiscoveryResponse {
 
 message Register {
   string username = 1;
+}
+message CancelRegistration {
 }
 message RequestChannels {
 
@@ -58,13 +60,12 @@ message Channel {
   string channel_name = 1;
   fixed64 channel_id = 2;
   bool channel_is_group = 3;
+  repeated ClientData connected_clients = 4;
 }
 
-message ChannelResponse {
-  bool channel_exists = 1;
-  string channel_name = 2;
-  bool channel_is_group = 3;
-  repeated string connected_clients = 4;
+message ClientData {
+  string username = 1;
+  fixed64 id = 2;
 }
 message MessageData {
   string username = 1;
