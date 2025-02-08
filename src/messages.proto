@@ -52,6 +52,7 @@ message SendMessage {
 message ConfirmRegistration {
   bool successful = 1;
   optional string error = 2;
+  string username = 3;
 }
 message ChannelsList {
   repeated Channel channels = 1;
