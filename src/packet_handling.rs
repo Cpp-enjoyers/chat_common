@@ -35,7 +35,8 @@ pub trait CommandHandler<C, E> {
 
     /// Returns a Vec<(NodeId, Vec<Fragment>)> to add to the tx and fragment queue
     /// Every element in the vector is a list of fragments to send to the corresponding node
-    fn handle_protocol_message(&mut self, message: ChatMessage) -> Vec<(NodeId, Vec<Fragment>)>
+    /// The second element is the list of events to be sent to the controller
+    fn handle_protocol_message(&mut self, message: ChatMessage) -> (Vec<(NodeId, Vec<Fragment>)>,Vec<E>)
     where
         Self: Sized;
 
@@ -45,7 +46,7 @@ pub trait CommandHandler<C, E> {
         Self: Sized;
 
     /// Obtains the senders hashmap and returns either a packet to be handled or an event to be sent to the controller
-    fn handle_controller_command(&mut self, sender_hash: &mut HashMap<NodeId, Sender<Packet>>, command: C) -> (Option<Packet>, Option<E>)
+    fn handle_controller_command(&mut self, sender_hash: &mut HashMap<NodeId, Sender<Packet>>, command: C) -> (Option<Packet>, Vec<E>)
     where
         Self: Sized;
     fn new() -> Self
@@ -182,7 +183,7 @@ where
             for (key, (frags, missing)) in self.rx_queue.clone() {
                 if missing.is_empty() {
                     if let Ok(message) = defragment(&frags) {
-                        let data_to_send = self.handler.handle_protocol_message(message);
+                        let (data_to_send, events_to_send) = self.handler.handle_protocol_message(message);
                         for (node_id, fragments) in data_to_send {
                             self.sent_fragments.insert(self.cur_session_id, (node_id, fragments.clone()));
                             for frag in fragments {
@@ -197,6 +198,9 @@ where
                             }
                             self.cur_session_id += 1;
                         }
+                        for event in events_to_send.into_iter() {
+                            let _ = self.controller_send.send(event);
+                        }
                     } else {
                         // Error: defragmentation failed
                     }
@@ -207,11 +211,11 @@ where
             select_biased! {
                 recv(self.controller_recv) -> cmd => {
                     if let Ok(cmd) = cmd {
-                    let res = self.handler.handle_controller_command(&mut self.packet_send, cmd);
-                        if let Some(packet) = res.0 {
+                    let (p,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
+                        if let Some(packet) = p {
                             self.handle_packet(packet, true);
                         }
-                        if let Some(event) = res.1 {
+                        for event in e.into_iter() {
                             let _ = self.controller_send.send(event);
                         }
                     }
