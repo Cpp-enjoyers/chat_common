@@ -28,10 +28,10 @@ use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
     fragments
 }
 #[allow(dead_code)]
-pub fn defragment(fragments: &Vec<[u8; 128]>) -> Result<ChatMessage, prost::DecodeError> {
+pub fn defragment(fragments: &Vec<Fragment>) -> Result<ChatMessage, prost::DecodeError> {
     let mut message_data: Vec<u8> = Vec::new();
     for fragment in fragments {
-        message_data.extend_from_slice(fragment);
+        message_data.extend_from_slice(&fragment.data[..fragment.length as usize]);
     }
     trace!("Defragmenting message {:?}", fragments);
     ChatMessage::decode(&message_data[..])

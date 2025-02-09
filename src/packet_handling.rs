@@ -25,7 +25,7 @@ pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
     pub handler: H,
     pub tx_queue_packets: VecDeque<(Packet, NodeId)>,
     pub sent_fragments: HashMap<u64, (NodeId, Vec<Fragment>)>, // session_id -> (node_id, fragment(s))
-    pub rx_queue: HashMap<(NodeId, u64), (Vec<[u8; 128]>, Vec<usize>)>, // (node_id, session_id) -> (fragments, missing fragment indexes)
+    pub rx_queue: HashMap<(NodeId, u64), (Vec<Fragment>, Vec<usize>)>, // (node_id, session_id) -> (fragments, missing fragment indexes)
     pub flood_flag: bool,
     pub cur_session_id: u64,
 }
@@ -293,7 +293,7 @@ where
                         Vec::with_capacity(frag.total_n_fragments as usize),
                         (0..frag.total_n_fragments as usize).collect(),
                     ));
-                    entry.0.insert(frag.fragment_index as usize, frag.data);
+                    entry.0.insert(frag.fragment_index as usize, frag.clone());
                     entry.1.retain(|&x| x != frag.fragment_index as usize);
                     self.routing_helper
                         .report_packet_ack(&packet.routing_header);
