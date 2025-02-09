@@ -2,6 +2,7 @@ use itertools::Itertools;
 use petgraph::algo::astar;
 use petgraph::prelude::DiGraphMap;
 use std::collections::HashMap;
+use log::error;
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::NodeType::Drone;
 use wg_2024::packet::{FloodRequest, FloodResponse, NodeType, Packet};
@@ -151,7 +152,7 @@ impl RoutingHelper {
                     } else if *typ_b == Drone {
                         self.topology_graph.add_edge(*id_b, *id_a, 1.0);
                     } else {
-                        // Trying to add connection between two clients/servers
+                        error!(target: format!("Node {}", self.node_id).as_str(),  "Trying to add connection between two clients/servers {} - {}", id_a, id_b);
                     }
                 }
                 vec![]
