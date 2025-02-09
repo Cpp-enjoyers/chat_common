@@ -158,9 +158,14 @@ where
         }
     }
     fn run_node(&mut self) {
+        let mut busy = false;
         loop {
-            info!(target: format!("Node {}", self.node_id).as_str(), "State: {self:?}");
+            if busy {
+                info!(target: format!("Node {}", self.node_id).as_str(), "State: {self:?}");
+            }
+            busy = false;
             if self.flood_flag {
+                busy = true;
                 info!(target: format!("Node {}", self.node_id).as_str(),  "Sending flood...");
                 self.flood_flag = false;
                 let flood_req = self
@@ -173,6 +178,7 @@ where
             }
             let mut failed_sends = vec![];
             while let Some((packet, node_id)) = self.tx_queue_packets.pop_front() {
+                busy = true;
                 let mut failed = true;
                 info!(target: format!("Node {}", self.node_id).as_str(), "Sending packet {} to {}", packet, node_id);
                 if packet.routing_header != SourceRoutingHeader::empty_route() {
@@ -220,6 +226,7 @@ where
                 .iter()
                 .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
             for (key, (frags, missing)) in self.rx_queue.clone() {
+                busy = true;
                 if missing.is_empty() {
                     info!(target: format!("Node {}", self.node_id).as_str(),  "All fragments received, proceeding to defragment: {frags:?}");
                     if let Ok(message) = defragment(&frags) {
@@ -242,6 +249,7 @@ where
             select_biased! {
                 recv(self.controller_recv) -> cmd => {
                     if let Ok(cmd) = cmd {
+                        busy = true;
                          info!(target: format!("Node {}", self.node_id).as_str(),  "Handling controller command: {cmd:?}");
                     let (p,m,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
                         if let Some(packet) = p {
@@ -260,6 +268,7 @@ where
                 },
                 recv(self.packet_recv) -> pkt => {
                     if let Ok(pkt) = pkt {
+                        busy = true;
                         info!(target: format!("Node {}", self.node_id).as_str(),  "Handling packet: {pkt}");
                         self.handle_packet(pkt, false);
                     }
