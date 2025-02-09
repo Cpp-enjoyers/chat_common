@@ -281,12 +281,13 @@ where
         let fragments = fragment::fragment(msg);
         self.cur_session_id += 1;
         for frag in fragments.clone() {
-            info!(target: format!("Node {}", self.node_id).as_str(), "Adding fragment to txq: {frag}");
-            self.tx_queue_packets.push_back((Packet::new_fragment(
+            let x = (Packet::new_fragment(
                 SourceRoutingHeader::empty_route(),
                 self.cur_session_id,
                 frag,
-            ),id));
+            ),id);
+            info!(target: format!("Node {}", self.node_id).as_str(), "Adding packet to txq: {x:?}");
+            self.tx_queue_packets.push_back(x);
         }
         info!(target: format!("Node {}", self.node_id).as_str(),  "Marking fragments for sending: {fragments:?}");
         self.sent_fragments.insert(self.cur_session_id, (id, fragments));
