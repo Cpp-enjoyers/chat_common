@@ -76,7 +76,7 @@ pub trait CommonChatNode<C, E> {
 }
 impl<H> Server for PacketHandler<SC, SE, H>
 where
-    H: CommandHandler<SC, SE>,
+    H: CommandHandler<SC, SE> + Send,
 {
     fn new(
         id: NodeId,
@@ -99,7 +99,7 @@ where
 }
 impl<H> Client for PacketHandler<CC, CE, H>
 where
-    H: CommandHandler<CC, CE>,
+    H: CommandHandler<CC, CE> + Send,
 {
     type T = CC;
     type U = CE;
@@ -211,7 +211,7 @@ where
                     failed_sends.push((packet, node_id));
                 }
             }
-            if failed_sends.len() > 0 { 
+            if failed_sends.len() > 0 {
                 info!(target: format!("Node {}", self.node_id).as_str(), "Packets {failed_sends:?} failed to send, pushing in queue");
             }
             failed_sends
