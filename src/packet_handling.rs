@@ -195,6 +195,8 @@ where
                             failed = false;
                             debug!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully");
                         } else {
+                            self.flood_flag = true;
+                            self.routing_helper.remove_node(next_hop);
                             warn!(target: format!("Node {}", self.node_id).as_str(), "No longer connected to next hop {}", next_hop);
                         }
                     } else {
