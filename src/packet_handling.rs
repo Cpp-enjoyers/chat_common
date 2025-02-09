@@ -190,6 +190,7 @@ where
                         if let Some(sender) = self.packet_send.get(&next_hop) {
                             let mut final_packet = packet.clone();
                             final_packet.routing_header = route;
+                            final_packet.routing_header.hop_index = 1;
                             let _ = sender.send(final_packet);
                             let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
                             failed = false;
