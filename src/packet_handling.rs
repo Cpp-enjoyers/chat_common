@@ -225,6 +225,7 @@ where
                             let _ = self.controller_send.send(event);
                         }
                         for (id,msg) in data_to_send {
+                            info!(target: format!("Node {}", self.node_id).as_str(),  "Sending to {id}: {msg:?}");
                             self.send_msg(msg,id);
                         }
                     } else {
@@ -248,6 +249,7 @@ where
                             let _ = self.controller_send.send(event);
                         }
                         for (id,msg) in m {
+                            info!(target: format!("Node {}", self.node_id).as_str(), "Sending to {id}: {msg:?}");
                             self.send_msg(msg,id);
                         }
                     }
@@ -266,6 +268,7 @@ where
         let fragments = fragment::fragment(msg);
         self.cur_session_id += 1;
         for frag in fragments.clone() {
+            debug!(target: format!("Node {}", self.node_id).as_str(), "Adding fragment to txq: {frag}");
             self.tx_queue_packets.push_back((Packet::new_fragment(
                 SourceRoutingHeader::empty_route(),
                 self.cur_session_id,
