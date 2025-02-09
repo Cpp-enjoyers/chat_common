@@ -158,7 +158,7 @@ where
         }
     }
     fn run_node(&mut self) {
-        let mut busy = false;
+        let mut busy = true;
         loop {
             if busy {
                 info!(target: format!("Node {}", self.node_id).as_str(), "State: {self:?}");
