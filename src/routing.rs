@@ -80,7 +80,7 @@ impl RoutingHelper {
             },
             |_| 0f64,
         ) {
-            info!(target: format!("Node {}", self.node_id).as_str(), "Generated SRH {:?}", path.1.clone());
+            info!(target: format!("Node {}", self.node_id).as_str(), "Generated SRH {src} -> {dst}: {:?}", path.1.clone());
             Some(SourceRoutingHeader::new(path.1, 1))
         } else {
             None
