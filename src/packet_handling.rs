@@ -160,8 +160,10 @@ where
     fn run_node(&mut self) {
         let mut busy = true;
         loop {
-            info!(target: format!("Node {}", self.node_id).as_str(), "State: {self:?}");
-            busy = false;
+            if busy {
+                info!(target: format!("Node {}", self.node_id).as_str(), "State: {self:?}");
+                busy = false;
+            }
             if self.flood_flag {
                 busy = true;
                 info!(target: format!("Node {}", self.node_id).as_str(),  "Sending flood...");
