@@ -127,7 +127,7 @@ where
 impl<C, E, H> CommonChatNode<C, E> for PacketHandler<C, E, H>
 where
     H: CommandHandler<C, E>,
-    PacketHandler<C, E, H>: Flooder, E: std::fmt::Debug
+    PacketHandler<C, E, H>: Flooder, E: std::fmt::Debug, C: std::fmt::Debug
 {
     fn new_node(
         id: NodeId,
@@ -237,6 +237,7 @@ where
             select_biased! {
                 recv(self.controller_recv) -> cmd => {
                     if let Ok(cmd) = cmd {
+                         info!(target: format!("Node {}", self.node_id).as_str(),  "Handling controller command: {cmd:?}");
                     let (p,m,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
                         if let Some(packet) = p {
                             info!(target: format!("Node {}", self.node_id).as_str(),  "Handling packet from shortcut: {packet}");
