@@ -97,10 +97,13 @@ where
         self.run_node()
     }
 }
-impl<H> Client<CC, CE> for PacketHandler<CC, CE, H>
+impl<H> Client for PacketHandler<CC, CE, H>
 where
     H: CommandHandler<CC, CE>,
 {
+    type T = CC;
+    type U = CE;
+
     fn new(
         id: NodeId,
         controller_send: Sender<CE>,

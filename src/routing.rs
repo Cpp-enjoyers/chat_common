@@ -2,7 +2,7 @@ use itertools::Itertools;
 use petgraph::algo::astar;
 use petgraph::prelude::DiGraphMap;
 use std::collections::HashMap;
-use log::error;
+use log::{error, info};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::NodeType::Drone;
 use wg_2024::packet::{FloodRequest, FloodResponse, NodeType, Packet};
@@ -103,18 +103,19 @@ impl RoutingHelper {
     }
     pub fn generate_flood_requests(&mut self, neighbors: Vec<NodeId>) -> Vec<(Packet, NodeId)> {
         let mut packets = Vec::new();
-        for neighbor in neighbors {
-            let header = SourceRoutingHeader::new(vec![self.node_id, neighbor], 1);
+        for neighbor in &neighbors {
+            let header = SourceRoutingHeader::new(vec![self.node_id, *neighbor], 1);
             packets.push((
                 Packet::new_flood_request(
                     header,
                     self.cur_flood_id,
                     FloodRequest::initialize(self.cur_flood_id, self.node_id, self.node_type),
                 ),
-                neighbor,
+                *neighbor,
             ));
         }
         self.cur_flood_id += 1;
+        info!(target: format!("Node {}", self.node_id).as_str(),  "Generated flood requests for neighbors: {:?}: {:?}", neighbors, packets.clone());
         packets
     }
     pub fn handle_flood_response(
@@ -123,6 +124,7 @@ impl RoutingHelper {
         sid: u64,
         pkt: &mut FloodResponse,
     ) -> Vec<(Packet, NodeId)> {
+        info!(target: format!("Node {}", self.node_id).as_str(),  "Handling flood response{pkt}");
         if let Some(first) = pkt.path_trace.first() {
             if first.0 == self.node_id {
                 for ((id_a, typ_a), (id_b, typ_b)) in pkt.path_trace.iter().tuple_windows() {
@@ -145,11 +147,14 @@ impl RoutingHelper {
                         })
                         .node_type = Some(*typ_b);
                     if *typ_a == Drone && *typ_b == Drone {
+                        info!(target: format!("Node {}", self.node_id).as_str(),  "Adding path {} <-> {}", id_a, id_b);
                         self.topology_graph.add_edge(*id_a, *id_b, 1.0);
                         self.topology_graph.add_edge(*id_b, *id_a, 1.0);
                     } else if *typ_a == Drone {
+                        info!(target: format!("Node {}", self.node_id).as_str(),  "Adding path {} -> {}", id_a, id_b);
                         self.topology_graph.add_edge(*id_a, *id_b, 1.0);
                     } else if *typ_b == Drone {
+                        info!(target: format!("Node {}", self.node_id).as_str(),  "Adding path {} -> {}", id_b, id_a);
                         self.topology_graph.add_edge(*id_b, *id_a, 1.0);
                     } else {
                         error!(target: format!("Node {}", self.node_id).as_str(),  "Trying to add connection between two clients/servers {} - {}", id_a, id_b);
@@ -159,11 +164,14 @@ impl RoutingHelper {
             } else if let Some(nh) = rh.next_hop() {
                 rh.increase_hop_index();
                 let p = Packet::new_flood_response(rh.clone(), sid, pkt.clone());
+                info!(target: format!("Node {}", self.node_id).as_str(),  "Sending flood response to {}: {}", nh, p);
                 vec![(p, nh)]
             } else {
+                error!(target: format!("Node {}", self.node_id).as_str(),  "No next hop!");
                 vec![]
             }
         } else {
+            error!(target: format!("Node {}", self.node_id).as_str(),  "Path trace is empty!");
             vec![]
         }
     }
