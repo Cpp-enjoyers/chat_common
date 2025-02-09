@@ -14,7 +14,7 @@ use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::{Fragment, NackType, NodeType, Packet, PacketType};
 use crate::fragment;
 
-pub struct PacketHandler<C, E, H: CommandHandler<C, E>> {
+pub struct PacketHandler<C, E, H: CommandHandler<C, E> + Send> {
     pub routing_helper: RoutingHelper,
     pub node_id: NodeId,
     pub controller_send: Sender<E>,
@@ -126,7 +126,7 @@ where
 
 impl<C, E, H> CommonChatNode<C, E> for PacketHandler<C, E, H>
 where
-    H: CommandHandler<C, E>,
+    H: CommandHandler<C, E> + Send,
     PacketHandler<C, E, H>: Flooder, E: std::fmt::Debug, C: std::fmt::Debug
 {
     fn new_node(
@@ -454,7 +454,7 @@ where
         self.flood_flag = true;
     }
 }
-impl<H: CommandHandler<CC, CE>> Flooder for PacketHandler<CC, CE, H>
+impl<H: CommandHandler<CC, CE> + Send> Flooder for PacketHandler<CC, CE, H>
 where
     H: CommandHandler<CC, CE>,
 {
