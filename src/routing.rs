@@ -2,7 +2,7 @@ use itertools::Itertools;
 use petgraph::algo::astar;
 use petgraph::prelude::DiGraphMap;
 use std::collections::HashMap;
-use log::{error, info};
+use log::{error, info, trace};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::NodeType::Drone;
 use wg_2024::packet::{FloodRequest, FloodResponse, NodeType, Packet};
@@ -80,6 +80,7 @@ impl RoutingHelper {
             },
             |_| 0f64,
         ) {
+            info!(target: format!("Node {}", self.node_id).as_str(), "Generated SRH {:?}", path.1.clone());
             Some(SourceRoutingHeader::new(path.1, 1))
         } else {
             None
@@ -160,6 +161,7 @@ impl RoutingHelper {
                         error!(target: format!("Node {}", self.node_id).as_str(),  "Trying to add connection between two clients/servers {} - {}", id_a, id_b);
                     }
                 }
+                trace!(target: format!("Node {}", self.node_id).as_str(),  "New topology: {:?}", self.topology_graph.all_edges());
                 vec![]
             } else if let Some(nh) = rh.next_hop() {
                 rh.increase_hop_index();
@@ -182,6 +184,7 @@ impl RoutingHelper {
         let mut h = header.clone();
         h.reverse();
         for (a, b) in h.hops.iter().tuple_windows() {
+            info!(target: format!("Node {}", self.node_id).as_str(),  "Adding path {} -> {}", a, b);
             self.topology_graph.add_edge(*a, *b, 1.0);
             self.node_data.entry(*a).or_insert(NodeInfo {
                 id: *a,
@@ -189,6 +192,7 @@ impl RoutingHelper {
                 acked_packets: 0,
                 node_type: None,
             });
+            trace!(target: format!("Node {}", self.node_id).as_str(),  "New topology: {:?}", self.topology_graph.all_edges());
             // We do not know the type from a simple routing header, it will be temporarily set to
             // none and will be updated when a flood response is received
         }
