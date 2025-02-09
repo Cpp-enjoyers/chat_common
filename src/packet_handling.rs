@@ -170,7 +170,16 @@ where
             while let Some((packet, node_id)) = self.tx_queue_packets.pop_front() {
                 let mut failed = true;
                 debug!("Sending packet {} to {}", packet, node_id);
-                if let Some(route) = self
+                if packet.routing_header != SourceRoutingHeader::empty_route() {
+                    if let Some(sender) = self.packet_send.get(&node_id) {
+                            let _ = sender.send(packet.clone());
+                            let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
+                            failed = false;
+                            debug!("Packet sent successfully without generating route");
+                        } else {
+                            warn!("No longer connected to neighbor {}", node_id);
+                        }
+                } else if let Some(route) = self
                     .routing_helper
                     .generate_source_routing_header(self.node_id, node_id)
                 {
