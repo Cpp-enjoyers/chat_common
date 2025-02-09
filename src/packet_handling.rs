@@ -228,7 +228,7 @@ where
                             self.send_msg(msg,id);
                         }
                     } else {
-                        error!(target: format!("Node {}", self.node_id).as_str(), "Defragmentation failed!");
+                        error!(target: format!("Node {}", self.node_id).as_str(), "Defragmentation failed! {:?}", defragment(&frags));
                     }
                     self.rx_queue.remove(&key);
                 }
