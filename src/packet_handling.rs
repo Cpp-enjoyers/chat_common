@@ -480,7 +480,7 @@ where
         let _ = self.controller_send.send(CE::PacketSent(p));
     }
 }
-impl<H: CommandHandler<SC, SE>> Flooder for PacketHandler<SC, SE, H>
+impl<H: CommandHandler<SC, SE> + Send> Flooder for PacketHandler<SC, SE, H>
 where
     H: CommandHandler<SC, SE>,
 {
