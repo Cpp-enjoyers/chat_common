@@ -244,10 +244,8 @@ where
                 }
             }
 
-            select_biased! {
-                recv(self.controller_recv) -> cmd => {
-                    if let Ok(cmd) = cmd {
-                        busy = true;
+            if let Ok(cmd) = self.controller_recv.try_recv(){
+                busy = true;
                          info!(target: format!("Node {}", self.node_id).as_str(),  "Handling controller command: {cmd:?}");
                     let (p,m,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
                         if let Some(packet) = p {
@@ -262,15 +260,11 @@ where
                             info!(target: format!("Node {}", self.node_id).as_str(), "Sending to {id}: {msg:?}");
                             self.send_msg(msg,id);
                         }
-                    }
-                },
-                recv(self.packet_recv) -> pkt => {
-                    if let Ok(pkt) = pkt {
-                        busy = true;
+            }
+            if let Ok(pkt) = self.packet_recv.try_recv() {
+                busy = true;
                         info!(target: format!("Node {}", self.node_id).as_str(),  "Handling packet: {pkt}");
                         self.handle_packet(pkt, false);
-                    }
-                }
             }
         }
     }
