@@ -161,7 +161,7 @@ impl RoutingHelper {
                         error!(target: format!("Node {}", self.node_id).as_str(),  "Trying to add connection between two clients/servers {} - {}", id_a, id_b);
                     }
                 }
-                trace!(target: format!("Node {}", self.node_id).as_str(),  "New topology: {:?}", self.topology_graph.all_edges());
+                info!(target: format!("Node {}", self.node_id).as_str(),  "New topology: {:?}", self.topology_graph.all_edges());
                 vec![]
             } else if let Some(nh) = rh.next_hop() {
                 rh.increase_hop_index();
@@ -192,7 +192,7 @@ impl RoutingHelper {
                 acked_packets: 0,
                 node_type: None,
             });
-            trace!(target: format!("Node {}", self.node_id).as_str(),  "New topology: {:?}", self.topology_graph.all_edges());
+            info!(target: format!("Node {}", self.node_id).as_str(),  "New topology: {:?}", self.topology_graph.all_edges());
             // We do not know the type from a simple routing header, it will be temporarily set to
             // none and will be updated when a flood response is received
         }

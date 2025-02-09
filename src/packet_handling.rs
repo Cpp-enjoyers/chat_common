@@ -164,7 +164,7 @@ where
                 let flood_req = self
                     .routing_helper
                     .generate_flood_requests(self.packet_send.keys().cloned().collect());
-                debug!(target: format!("Node {}", self.node_id).as_str(), "Generated flood packets {:?}", flood_req);
+                info!(target: format!("Node {}", self.node_id).as_str(), "Generated flood packets {:?}", flood_req);
                 flood_req
                     .iter()
                     .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
@@ -172,13 +172,13 @@ where
             let mut failed_sends = vec![];
             while let Some((packet, node_id)) = self.tx_queue_packets.pop_front() {
                 let mut failed = true;
-                debug!(target: format!("Node {}", self.node_id).as_str(), "Sending packet {} to {}", packet, node_id);
+                info!(target: format!("Node {}", self.node_id).as_str(), "Sending packet {} to {}", packet, node_id);
                 if packet.routing_header != SourceRoutingHeader::empty_route() {
                     if let Some(sender) = self.packet_send.get(&node_id) {
                             let _ = sender.send(packet.clone());
                             let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
                             failed = false;
-                            debug!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully without generating route");
+                            info!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully without generating route");
                         } else {
                             warn!(target: format!("Node {}", self.node_id).as_str(), "No longer connected to neighbor {}", node_id);
                         }
@@ -194,7 +194,7 @@ where
                             let _ = sender.send(final_packet);
                             let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
                             failed = false;
-                            debug!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully");
+                            info!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully");
                         } else {
                             self.flood_flag = true;
                             self.routing_helper.remove_node(next_hop);
@@ -204,14 +204,14 @@ where
                         error!(target: format!("Node {}", self.node_id).as_str(), "Route {route} doesn't contain a next hop!");
                     }
                 } else {
-                    debug!(target: format!("Node {}", self.node_id).as_str(), "No route found to {}", node_id);
+                    info!(target: format!("Node {}", self.node_id).as_str(), "No route found to {}", node_id);
                 }
                 if failed {
                     error!(target: format!("Node {}", self.node_id).as_str(), "Cannot send packet to {node_id}, no route found!");
                     failed_sends.push((packet, node_id));
                 }
             }
-            trace!(target: format!("Node {}", self.node_id).as_str(), "Packets {failed_sends:?} failed to send, pushing in queue");
+            info!(target: format!("Node {}", self.node_id).as_str(), "Packets {failed_sends:?} failed to send, pushing in queue");
             failed_sends
                 .iter()
                 .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
@@ -268,7 +268,7 @@ where
         let fragments = fragment::fragment(msg);
         self.cur_session_id += 1;
         for frag in fragments.clone() {
-            debug!(target: format!("Node {}", self.node_id).as_str(), "Adding fragment to txq: {frag}");
+            info!(target: format!("Node {}", self.node_id).as_str(), "Adding fragment to txq: {frag}");
             self.tx_queue_packets.push_back((Packet::new_fragment(
                 SourceRoutingHeader::empty_route(),
                 self.cur_session_id,
