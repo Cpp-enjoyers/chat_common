@@ -14,7 +14,8 @@ use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::{Fragment, NackType, NodeType, Packet, PacketType};
 use crate::fragment;
 
-pub struct PacketHandler<C, E, H: CommandHandler<C, E> + Send> {
+#[derive(Debug)]
+pub struct PacketHandler<C, E, H: CommandHandler<C, E> + Send> where H: std::fmt::Debug {
     pub routing_helper: RoutingHelper,
     pub node_id: NodeId,
     pub controller_send: Sender<E>,
@@ -76,7 +77,7 @@ pub trait CommonChatNode<C, E> {
 }
 impl<H> Server for PacketHandler<SC, SE, H>
 where
-    H: CommandHandler<SC, SE> + Send,
+    H: CommandHandler<SC, SE> + Send + std::fmt::Debug,
 {
     fn new(
         id: NodeId,
@@ -99,7 +100,7 @@ where
 }
 impl<H> Client for PacketHandler<CC, CE, H>
 where
-    H: CommandHandler<CC, CE> + Send,
+    H: CommandHandler<CC, CE> + Send + std::fmt::Debug,
 {
     type T = CC;
     type U = CE;
@@ -126,7 +127,7 @@ where
 
 impl<C, E, H> CommonChatNode<C, E> for PacketHandler<C, E, H>
 where
-    H: CommandHandler<C, E> + Send,
+    H: CommandHandler<C, E> + Send + std::fmt::Debug,
     PacketHandler<C, E, H>: Flooder, E: std::fmt::Debug, C: std::fmt::Debug
 {
     fn new_node(
@@ -153,11 +154,12 @@ where
             sent_fragments: Default::default(),
             rx_queue: Default::default(),
             flood_flag: true,
-            cur_session_id: 0,
+            cur_session_id: 1,
         }
     }
     fn run_node(&mut self) {
         loop {
+            info!(target: format!("Node {}", self.node_id).as_str(), "State: {self:?}");
             if self.flood_flag {
                 info!(target: format!("Node {}", self.node_id).as_str(),  "Sending flood...");
                 self.flood_flag = false;
@@ -454,7 +456,7 @@ where
         self.flood_flag = true;
     }
 }
-impl<H: CommandHandler<CC, CE> + Send> Flooder for PacketHandler<CC, CE, H>
+impl<H: CommandHandler<CC, CE> + Send + std::fmt::Debug> Flooder for PacketHandler<CC, CE, H>
 where
     H: CommandHandler<CC, CE>,
 {
@@ -480,7 +482,7 @@ where
         let _ = self.controller_send.send(CE::PacketSent(p));
     }
 }
-impl<H: CommandHandler<SC, SE> + Send> Flooder for PacketHandler<SC, SE, H>
+impl<H: CommandHandler<SC, SE> + Send + std::fmt::Debug> Flooder for PacketHandler<SC, SE, H>
 where
     H: CommandHandler<SC, SE>,
 {

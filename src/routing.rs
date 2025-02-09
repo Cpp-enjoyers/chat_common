@@ -7,6 +7,7 @@ use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::NodeType::Drone;
 use wg_2024::packet::{FloodRequest, FloodResponse, NodeType, Packet};
 
+#[derive(Debug)]
 pub struct RoutingHelper {
     pub cur_flood_id: u64,
     pub topology_graph: DiGraphMap<NodeId, f64>,
@@ -14,6 +15,7 @@ pub struct RoutingHelper {
     pub node_id: NodeId,
     pub node_type: NodeType,
 }
+#[derive(Debug)]
 pub struct NodeInfo {
     pub id: NodeId,
     pub dropped_packets: u64,
