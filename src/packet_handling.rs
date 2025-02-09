@@ -211,7 +211,9 @@ where
                     failed_sends.push((packet, node_id));
                 }
             }
-            info!(target: format!("Node {}", self.node_id).as_str(), "Packets {failed_sends:?} failed to send, pushing in queue");
+            if failed_sends.len() > 0 { 
+                info!(target: format!("Node {}", self.node_id).as_str(), "Packets {failed_sends:?} failed to send, pushing in queue");
+            }
             failed_sends
                 .iter()
                 .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
