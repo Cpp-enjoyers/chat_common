@@ -9,6 +9,7 @@ use common::slc_commands::{
 use common::{Client, Server};
 use crossbeam::channel::{select_biased, Receiver, Sender};
 use std::collections::{HashMap, VecDeque};
+use log::{debug, error, info, trace, warn};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::{Fragment, NackType, NodeType, Packet, PacketType};
 use crate::fragment;
@@ -123,7 +124,7 @@ where
 impl<C, E, H> CommonChatNode<C, E> for PacketHandler<C, E, H>
 where
     H: CommandHandler<C, E>,
-    PacketHandler<C, E, H>: Flooder,
+    PacketHandler<C, E, H>: Flooder, E: std::fmt::Debug
 {
     fn new_node(
         id: NodeId,
@@ -155,10 +156,12 @@ where
     fn run_node(&mut self) {
         loop {
             if self.flood_flag {
+                info!("Sending flood...");
                 self.flood_flag = false;
                 let flood_req = self
                     .routing_helper
                     .generate_flood_requests(self.packet_send.keys().cloned().collect());
+                debug!("Generated flood packets {:?}", flood_req);
                 flood_req
                     .iter()
                     .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
@@ -166,37 +169,51 @@ where
             let mut failed_sends = vec![];
             while let Some((packet, node_id)) = self.tx_queue_packets.pop_front() {
                 let mut failed = true;
+                debug!("Sending packet {} to {}", packet, node_id);
                 if let Some(route) = self
                     .routing_helper
                     .generate_source_routing_header(self.node_id, node_id)
                 {
                     if let Some(next_hop) = route.next_hop() {
                         if let Some(sender) = self.packet_send.get(&next_hop) {
-                            let _ = sender.send(packet.clone());
+                            let mut final_packet = packet.clone();
+                            final_packet.routing_header = route;
+                            let _ = sender.send(final_packet);
                             let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
                             failed = false;
+                            debug!("Packet sent successfully");
+                        } else {
+                            warn!("No longer connected to next hop {}", next_hop);
                         }
+                    } else {
+                        error!("Route {route} doesn't contain a next hop!");
                     }
+                } else {
+                    debug!("No route found to {}", node_id);
                 }
                 if failed {
+                    error!("Cannot send packet to {node_id}, no route found!");
                     failed_sends.push((packet, node_id));
                 }
             }
+            trace!("Packets {failed_sends:?} failed to send, pushing in queue");
             failed_sends
                 .iter()
                 .for_each(|x| self.tx_queue_packets.push_back(x.clone()));
             for (key, (frags, missing)) in self.rx_queue.clone() {
                 if missing.is_empty() {
+                    info!("All fragments received, proceeding to defragment: {frags:?}");
                     if let Ok(message) = defragment(&frags) {
                         let (data_to_send, events_to_send) = self.handler.handle_protocol_message(message);
                         for event in events_to_send.into_iter() {
+                            info!("Sending to controller: {event:?}");
                             let _ = self.controller_send.send(event);
                         }
                         for (id,msg) in data_to_send {
                             self.send_msg(msg,id);
                         }
                     } else {
-                        // Error: defragmentation failed
+                        error!("Defragmentation failed!");
                     }
                     self.rx_queue.remove(&key);
                 }
@@ -207,9 +224,11 @@ where
                     if let Ok(cmd) = cmd {
                     let (p,m,e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
                         if let Some(packet) = p {
+                            info!("Handling packet from shortcut: {packet}");
                             self.handle_packet(packet, true);
                         }
                         for event in e.into_iter() {
+                            info!("Sending to controller: {event:?}");
                             let _ = self.controller_send.send(event);
                         }
                         for (id,msg) in m {
@@ -219,6 +238,7 @@ where
                 },
                 recv(self.packet_recv) -> pkt => {
                     if let Ok(pkt) = pkt {
+                        info!("Handling packet: {pkt}");
                         self.handle_packet(pkt, false);
                     }
                 }
@@ -236,18 +256,21 @@ where
                 frag,
             ),id));
         }
+        info!("Marking fragments for sending: {fragments:?}");
         self.sent_fragments.insert(self.cur_session_id, (id, fragments));
     }
     
     fn handle_packet(&mut self, packet: Packet, from_shortcut: bool) {
         match packet.pack_type {
             PacketType::MsgFragment(frag) => {
+                info!("Handling message {frag:?}");
                 if !from_shortcut {
+                    info!("Updating routing table from header");
                     self.routing_helper
                         .add_from_incoming_routing_header(&packet.routing_header);
                 }
                 if frag.fragment_index + 1 > frag.total_n_fragments {
-                    // Error: fragment index is out of bounds
+                    error!("fragment index {} is out of bounds from {}", frag.fragment_index, frag.total_n_fragments);
                     return;
                 }
                 if let Some(src) = packet.routing_header.source() {
@@ -259,7 +282,7 @@ where
                     entry.1.retain(|&x| x != frag.fragment_index as usize);
                     self.routing_helper
                         .report_packet_ack(&packet.routing_header);
-                    // prepare ack to send
+                    info!("Sending ack!");
                     self.tx_queue_packets.push_back((
                         Packet::new_ack(
                             SourceRoutingHeader::empty_route(),
@@ -268,10 +291,14 @@ where
                         ),
                         src,
                     ));
+                } else {
+                    error!("Packet has no source!");
                 }
             }
             PacketType::Ack(ack) => {
+                 info!("Handling ack {ack:?}");
                 if !from_shortcut {
+                    info!("Updating routing table from header");
                     self.routing_helper
                         .add_from_incoming_routing_header(&packet.routing_header);
                 }
@@ -284,26 +311,37 @@ where
                             if fragments.is_empty() {
                                 self.sent_fragments.remove(&packet.session_id);
                             }
+                        } else {
+                            error!("Packet from {src} is marked as being sent to {node_id}");
                         }
+                    } else {
+                        error!("Received ack for fragment that was never sent");
                     }
+                } else {
+                    error!("Packet has no source!");
                 }
             }
             PacketType::Nack(nack) => {
                 match nack.nack_type {
                     NackType::ErrorInRouting(id) => {
-                        // Drone probably crashed, so we remove it
+                        warn!("Drone {id} probably crashed - ErrorInRouting");
                         self.routing_helper.remove_node(id);
                         self.flood_flag = true;
                     }
-                    NackType::DestinationIsDrone => {}
+                    NackType::DestinationIsDrone => {
+                        error!("Received DestinationIsDrone {nack}");
+                    }
                     NackType::Dropped => {
+                        info!("Handling drop");
                         if !from_shortcut {
+                            info!("Updating routing table from header");
                             self.routing_helper
                                 .add_from_incoming_routing_header(&packet.routing_header);
                         }
                         if let Some((dst, frags)) = self.sent_fragments.get(&packet.session_id) {
                             self.routing_helper.report_packet_drop(*dst);
                             if let Some(frag) = frags.get(nack.fragment_index as usize) {
+                                info!("Resending packet to {dst}: {frag}");
                                 self.tx_queue_packets.push_back((
                                     Packet::new_fragment(
                                         SourceRoutingHeader::empty_route(),
@@ -315,11 +353,15 @@ where
                             }
                         }
                     }
-                    NackType::UnexpectedRecipient(_) => {}
+                    NackType::UnexpectedRecipient(_) => {
+                        error!("Got UnexpectedRecipient {nack}");
+                    }
                 }
             }
             PacketType::FloodRequest(mut req) => {
+                info!("Handling flood req {req}");
                 if !from_shortcut {
+                    info!("Updating routing table from header");
                     self.routing_helper
                         .add_from_incoming_routing_header(&packet.routing_header);
                 }
@@ -328,9 +370,11 @@ where
             }
             PacketType::FloodResponse(mut res) => {
                 if !from_shortcut {
+                    info!("Updating routing table from header");
                     self.routing_helper
                         .add_from_incoming_routing_header(&packet.routing_header);
                 }
+                info!("Handling flood res {res}");
                 let tx = self.routing_helper.handle_flood_response(
                     packet.routing_header,
                     packet.session_id,
@@ -338,12 +382,15 @@ where
                 );
                 for (packet, node_id) in tx {
                     if let Some(x) = self.packet_send.get(&node_id) {
+                        info!("Sending packet to {node_id}: {packet}");
                         self.send_to_controller(packet.clone());
                         let _ = x.send(packet);
+                    } else {
+                        error!("Can't send flood response to {node_id}: {packet}");
                     }
                 }
                 let mut to_send = vec![];
-                for id in self.routing_helper.topology_graph.nodes() {
+                for id in self.routing_helper.topology_graph.nodes().filter(|x| *x != self.node_id) {
                     if let Some(data) = self.routing_helper.node_data.get(&id) {
                         match data.node_type { 
                             Some(typ) if typ != NodeType::Drone => { 
@@ -351,20 +398,25 @@ where
                             }
                             _ => {}
                         }
+                    } else {
+                        info!("Node has no data {id}");
                     }
                 }
                 for (i,m) in to_send {
+                    info!("Sending discovery {i}: {m:?}");
                     self.send_msg(m,i);
                 }
             }
         }
     }
     fn remove_sender(&mut self, node_id: NodeId) {
+        info!("Removing sender {node_id}");
         self.packet_send.remove(&node_id);
         self.routing_helper.remove_node(node_id);
         self.flood_flag = true;
     }
     fn add_sender(&mut self, node_id: NodeId, sender: Sender<Packet>) {
+        info!("Adding sender {node_id}");
         self.packet_send.insert(node_id, sender);
         self.routing_helper
             .topology_graph

@@ -1,3 +1,4 @@
+use log::trace;
 use crate::messages::ChatMessage;
 use prost::Message;
 use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
@@ -23,6 +24,7 @@ use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
             data,
         });
     }
+    trace!("Fragmented message {:?} - {:?}", message, fragments);
     fragments
 }
 #[allow(dead_code)]
@@ -31,5 +33,6 @@ pub fn defragment(fragments: &Vec<[u8; 128]>) -> Result<ChatMessage, prost::Deco
     for fragment in fragments {
         message_data.extend_from_slice(fragment);
     }
+    trace!("Defragmenting message {:?}", fragments);
     ChatMessage::decode(&message_data[..])
 }

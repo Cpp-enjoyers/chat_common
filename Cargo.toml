@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 prost = "0.13"
 wg_2024 = { git = "https://github.com/WGL-2024/WGL_repo_2024.git", features = ["serialize", "debug"] }
-
+log = "0.4"
 petgraph = "0.7"
 common = { git = "https://github.com/Cpp-enjoyers/common"}
 crossbeam = "0.8"
