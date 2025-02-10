@@ -1,12 +1,11 @@
 use crate::messages::ChatMessage;
 use prost::Message;
 use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
-#[allow(clippy::cast_possible_truncation)]
-
 /// # Panics
 ///
 /// Cannot panic, since the buffer is created with the size of the message.
-#[must_use] pub fn fragment(message: &ChatMessage) -> Vec<Fragment> {
+#[must_use]
+pub fn fragment(message: &ChatMessage) -> Vec<Fragment> {
     let mut fragments: Vec<Fragment> = Vec::new();
     let mut buf: Vec<u8> = Vec::with_capacity(message.encoded_len());
     message.encode(&mut buf).unwrap();
@@ -16,6 +15,7 @@ use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
         let mut data = [0; FRAGMENT_DSIZE];
         data[..fragment_data.len()].copy_from_slice(fragment_data);
         data[fragment_data.len()..].iter_mut().for_each(|b| *b = 0);
+        #[allow(clippy::cast_possible_truncation)]
         fragments.push(Fragment {
             fragment_index: fragment_index as u64,
             total_n_fragments,
@@ -27,7 +27,7 @@ use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
 }
 
 /// # Errors
-/// 
+///
 /// Can fail if the fragment is sent by a non-chat client/server
 pub fn defragment(fragments: &Vec<Fragment>) -> Result<ChatMessage, prost::DecodeError> {
     let mut message_data: Vec<u8> = Vec::new();

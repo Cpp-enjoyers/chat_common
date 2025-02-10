@@ -1,13 +1,13 @@
+use crate::packet_handling::{CommandHandler, CommonChatNode, PacketHandler};
+use common::networking::flooder::Flooder;
 use common::slc_commands::{
     ChatClientCommand as CC, ChatClientEvent as CE, ServerCommand as SC, ServerEvent as SE,
 };
-use std::collections::HashMap;
 use common::{Client, Server};
-use common::networking::flooder::Flooder;
 use crossbeam::channel::{Receiver, Sender};
+use std::collections::HashMap;
 use wg_2024::network::NodeId;
 use wg_2024::packet::{NodeType, Packet};
-use crate::packet_handling::{CommandHandler, CommonChatNode, PacketHandler};
 
 impl<H> Server for PacketHandler<SC, SE, H>
 where
@@ -58,10 +58,7 @@ where
         self.run_node();
     }
 }
-impl<H: CommandHandler<CC, CE> + Send + std::fmt::Debug> Flooder for PacketHandler<CC, CE, H>
-where
-    H: CommandHandler<CC, CE>,
-{
+impl<H: CommandHandler<CC, CE> + Send + std::fmt::Debug> Flooder for PacketHandler<CC, CE, H> {
     const NODE_TYPE: NodeType = NodeType::Client;
 
     fn get_id(&self) -> NodeId {
@@ -84,10 +81,7 @@ where
         let _ = self.controller_send.send(CE::PacketSent(p));
     }
 }
-impl<H: CommandHandler<SC, SE> + Send + std::fmt::Debug> Flooder for PacketHandler<SC, SE, H>
-where
-    H: CommandHandler<SC, SE>,
-{
+impl<H: CommandHandler<SC, SE> + Send + std::fmt::Debug> Flooder for PacketHandler<SC, SE, H> {
     const NODE_TYPE: NodeType = NodeType::Server;
 
     fn get_id(&self) -> NodeId {

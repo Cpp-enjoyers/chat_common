@@ -1,18 +1,24 @@
+use crate::packet_handling::{CommandHandler, PacketHandler};
 use common::networking::flooder::Flooder;
 use log::{error, trace, warn};
 use wg_2024::network::SourceRoutingHeader;
-use wg_2024::packet::{Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet};
-use crate::packet_handling::{CommandHandler, PacketHandler};
-#[allow(clippy::cast_possible_truncation)]
+use wg_2024::packet::{
+    Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet,
+};
 
 impl<C, E, H> PacketHandler<C, E, H>
 where
     C: std::fmt::Debug,
     E: std::fmt::Debug,
     H: CommandHandler<C, E> + Send + std::fmt::Debug,
-    PacketHandler<C, E, H>: Flooder,
+    Self: Flooder,
 {
-    pub(crate) fn pkt_floodresponse(&mut self, packet: &Packet, from_shortcut: bool, res: &mut FloodResponse) {
+    pub(crate) fn pkt_floodresponse(
+        &mut self,
+        packet: &Packet,
+        from_shortcut: bool,
+        res: &mut FloodResponse,
+    ) {
         if !from_shortcut {
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Updating routing table from header");
             self.routing_helper
@@ -34,11 +40,18 @@ where
             }
         }
         let mut to_send = vec![];
-        for id in self.routing_helper.topology_graph.nodes().filter(|x| *x != self.node_id) {
+        for id in self
+            .routing_helper
+            .topology_graph
+            .nodes()
+            .filter(|x| *x != self.node_id)
+        {
             if let Some(data) = self.routing_helper.node_data.get(&id) {
                 match data.node_type {
                     Some(typ) if typ != NodeType::Drone => {
-                        if let Some(x) = self.handler.add_node(id, typ) { to_send.push(x) }
+                        if let Some(x) = self.handler.add_node(id, typ) {
+                            to_send.push(x)
+                        }
                     }
                     _ => {}
                 }
@@ -48,15 +61,19 @@ where
         }
         self.send_messages(to_send);
     }
-    pub(crate) fn pkt_floodrequest(&mut self, packet: &Packet, from_shortcut: bool, req: &mut FloodRequest) {
+    pub(crate) fn pkt_floodrequest(
+        &mut self,
+        packet: &Packet,
+        from_shortcut: bool,
+        req: &mut FloodRequest,
+    ) {
         trace!(target: format!("Node {}", self.node_id).as_str(),  "Handling flood req {req}");
         if !from_shortcut {
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Updating routing table from header");
             self.routing_helper
                 .add_from_incoming_routing_header(&packet.routing_header);
         }
-        let _ =
-            self.handle_flood_request(&packet.routing_header, packet.session_id, req);
+        let _ = self.handle_flood_request(&packet.routing_header, packet.session_id, req);
     }
     pub(crate) fn pkt_nack(&mut self, packet: &Packet, from_shortcut: bool, nack: &Nack) {
         match nack.nack_type {
@@ -77,6 +94,7 @@ where
                 }
                 if let Some((dst, frags)) = self.sent_fragments.get(&packet.session_id) {
                     self.routing_helper.report_packet_drop(*dst);
+                    #[allow(clippy::cast_possible_truncation)]
                     if let Some(frag) = frags.get(nack.fragment_index as usize) {
                         trace!(target: format!("Node {}", self.node_id).as_str(),  "Resending packet to {dst}: {frag}");
                         self.tx_queue_packets.push_back((
@@ -95,7 +113,13 @@ where
             }
         }
     }
-    pub(crate) fn pkt_msgfragment(&mut self, packet: &Packet, from_shortcut: bool, frag: &Fragment) {
+    #[allow(clippy::cast_possible_truncation)]
+    pub(crate) fn pkt_msgfragment(
+        &mut self,
+        packet: &Packet,
+        from_shortcut: bool,
+        frag: &Fragment,
+    ) {
         trace!(target: format!("Node {}", self.node_id).as_str(),  "Handling message {frag:?}");
         if !from_shortcut {
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Updating routing table from header");
@@ -107,10 +131,15 @@ where
             return;
         }
         if let Some(src) = packet.routing_header.source() {
-            let entry = self.rx_queue.entry((src, packet.session_id)).or_insert((
-                Vec::with_capacity(frag.total_n_fragments as usize),
-                (0..frag.total_n_fragments as usize).collect(),
-            ));
+            let entry = self
+                .rx_queue
+                .entry((src, packet.session_id))
+                .or_insert_with(|| {
+                    (
+                        Vec::with_capacity(frag.total_n_fragments as usize),
+                        (0..frag.total_n_fragments as usize).collect(),
+                    )
+                });
             entry.0.insert(frag.fragment_index as usize, frag.clone());
             entry.1.retain(|&x| x != frag.fragment_index as usize);
             self.routing_helper
@@ -136,9 +165,7 @@ where
                 .add_from_incoming_routing_header(&packet.routing_header);
         }
         if let Some(src) = packet.routing_header.source() {
-            if let Some((node_id, fragments)) =
-                self.sent_fragments.get_mut(&packet.session_id)
-            {
+            if let Some((node_id, fragments)) = self.sent_fragments.get_mut(&packet.session_id) {
                 if *node_id == src {
                     fragments.retain(|x| x.fragment_index != ack.fragment_index);
                     if fragments.is_empty() {

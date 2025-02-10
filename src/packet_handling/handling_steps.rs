@@ -1,16 +1,16 @@
+use crate::messages::ChatMessage;
+use crate::packet_handling::fragment::defragment;
+use crate::packet_handling::{CommandHandler, CommonChatNode, PacketHandler};
 use common::networking::flooder::Flooder;
 use log::{debug, error, trace, warn};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
-use crate::messages::ChatMessage;
-use crate::packet_handling::{CommandHandler, CommonChatNode, PacketHandler};
-use crate::packet_handling::fragment::defragment;
 
 impl<C, E, H> PacketHandler<C, E, H>
 where
     C: std::fmt::Debug,
     E: std::fmt::Debug,
     H: CommandHandler<C, E> + Send + std::fmt::Debug,
-    PacketHandler<C, E, H>: Flooder,
+    Self: Flooder,
 {
     pub(crate) fn try_recv_packet(&mut self, busy: &mut bool) {
         if let Ok(pkt) = self.packet_recv.try_recv() {
@@ -23,7 +23,9 @@ where
         if let Ok(cmd) = self.controller_recv.try_recv() {
             *busy = true;
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Handling controller command: {cmd:?}");
-            let (p, m, e) = self.handler.handle_controller_command(&mut self.packet_send, cmd);
+            let (p, m, e) = self
+                .handler
+                .handle_controller_command(&mut self.packet_send, cmd);
             if let Some(packet) = p {
                 trace!(target: format!("Node {}", self.node_id).as_str(),  "Handling packet from shortcut: {packet}");
                 self.handle_packet(packet, true);
@@ -38,7 +40,8 @@ where
             if missing.is_empty() {
                 trace!(target: format!("Node {}", self.node_id).as_str(),  "All fragments received, proceeding to defragment: {frags:?}");
                 if let Ok(message) = defragment(&frags) {
-                    let (data_to_send, events_to_send) = self.handler.handle_protocol_message(message);
+                    let (data_to_send, events_to_send) =
+                        self.handler.handle_protocol_message(message);
                     self.send_controller_events(events_to_send);
                     self.send_messages(data_to_send);
                 } else {
@@ -54,7 +57,7 @@ where
             self.send_msg(msg, id);
         }
     }
-    fn send_controller_events(&mut self, e: Vec<E>) {
+    fn send_controller_events(&self, e: Vec<E>) {
         for event in e {
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Sending to controller: {event:?}");
             let _ = self.controller_send.send(event);
@@ -69,7 +72,9 @@ where
             if packet.routing_header != SourceRoutingHeader::empty_route() {
                 if let Some(sender) = self.packet_send.get(&node_id) {
                     let _ = sender.send(packet.clone());
-                    let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
+                    let _ = self
+                        .controller_send
+                        .send(self.handler.report_sent_packet(packet.clone()));
                     failed = false;
                     trace!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully without generating route");
                 } else {
@@ -85,7 +90,9 @@ where
                         final_packet.routing_header = route;
                         final_packet.routing_header.hop_index = 1;
                         let _ = sender.send(final_packet);
-                        let _ = self.controller_send.send(self.handler.report_sent_packet(packet.clone()));
+                        let _ = self
+                            .controller_send
+                            .send(self.handler.report_sent_packet(packet.clone()));
                         failed = false;
                         trace!(target: format!("Node {}", self.node_id).as_str(), "Packet sent successfully");
                     } else {
@@ -116,9 +123,13 @@ where
             *busy = true;
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Sending flood...");
             self.flood_flag = false;
-            let flood_req = self
-                .routing_helper
-                .generate_flood_requests(self.packet_send.keys().copied().collect());
+            let flood_req = self.routing_helper.generate_flood_requests(
+                self.packet_send
+                    .keys()
+                    .copied()
+                    .collect::<Vec<NodeId>>()
+                    .as_slice(),
+            );
             flood_req
                 .iter()
                 .for_each(|x| self.tx_queue_packets.push_back(x.clone()));

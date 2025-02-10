@@ -1,21 +1,20 @@
-
 use crate::messages::ChatMessage;
+use crate::packet_handling::routing::{NodeInfo, RoutingHelper};
 use common::networking::flooder::Flooder;
 use common::ring_buffer::RingBuffer;
 use crossbeam::channel::{Receiver, Sender};
-use std::collections::{HashMap, VecDeque};
 use log::trace;
+use std::collections::{HashMap, VecDeque};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::{Fragment, NodeType, Packet, PacketType};
-use crate::packet_handling::routing::{NodeInfo, RoutingHelper};
 
 pub mod fragment;
-pub mod routing;
-mod packet_handler_impls;
 mod handling_steps;
+mod packet_handler_impls;
+pub mod routing;
 
 #[derive(Debug)]
-pub struct PacketHandler<C, E, H: CommandHandler<C, E> + Send> where H: std::fmt::Debug {
+pub struct PacketHandler<C, E, H: CommandHandler<C, E> + Send> {
     pub routing_helper: RoutingHelper,
     pub node_id: NodeId,
     pub controller_send: Sender<E>,
@@ -39,7 +38,10 @@ pub trait CommandHandler<C, E> {
     /// Returns a `Vec<(NodeId, Vec<Fragment>)>` to add to the tx and fragment queue
     /// Every element in the vector is a list of fragments to send to the corresponding node
     /// The second element is the list of events to be sent to the controller
-    fn handle_protocol_message(&mut self, message: ChatMessage) -> (Vec<(NodeId, ChatMessage)>, Vec<E>)
+    fn handle_protocol_message(
+        &mut self,
+        message: ChatMessage,
+    ) -> (Vec<(NodeId, ChatMessage)>, Vec<E>)
     where
         Self: Sized;
 
@@ -49,12 +51,16 @@ pub trait CommandHandler<C, E> {
         Self: Sized;
 
     /// Obtains the senders hashmap and returns either a packet to be handled or an event to be sent to the controller
-    fn handle_controller_command(&mut self, sender_hash: &mut HashMap<NodeId, Sender<Packet>>, command: C) -> (Option<Packet>, Vec<(NodeId, ChatMessage)>, Vec<E>)
+    fn handle_controller_command(
+        &mut self,
+        sender_hash: &mut HashMap<NodeId, Sender<Packet>>,
+        command: C,
+    ) -> (Option<Packet>, Vec<(NodeId, ChatMessage)>, Vec<E>)
     where
         Self: Sized;
-    
+
     fn add_node(&mut self, id: NodeId, typ: NodeType) -> Option<(NodeId, ChatMessage)>;
-    
+
     fn new(id: NodeId) -> Self
     where
         Self: Sized;
@@ -79,7 +85,9 @@ pub trait CommonChatNode<C, E> {
 impl<C, E, H> CommonChatNode<C, E> for PacketHandler<C, E, H>
 where
     H: CommandHandler<C, E> + Send + std::fmt::Debug,
-    PacketHandler<C, E, H>: Flooder, E: std::fmt::Debug, C: std::fmt::Debug
+    Self: Flooder,
+    E: std::fmt::Debug,
+    C: std::fmt::Debug,
 {
     fn new_node(
         id: NodeId,
@@ -88,7 +96,7 @@ where
         packet_recv: Receiver<Packet>,
         packet_send: HashMap<NodeId, Sender<Packet>>,
     ) -> Self {
-        PacketHandler {
+        Self {
             routing_helper: RoutingHelper::new_with_neighbors(
                 id,
                 H::get_node_type(),
@@ -123,30 +131,38 @@ where
             self.try_recv_packet(&mut busy);
         }
     }
-    
+
     fn send_msg(&mut self, msg: ChatMessage, id: NodeId) {
         let fragments = fragment::fragment(&msg);
         self.cur_session_id += 1;
         for frag in fragments.clone() {
-            let x = (Packet::new_fragment(
-                SourceRoutingHeader::empty_route(),
-                self.cur_session_id,
-                frag,
-            ),id);
+            let x = (
+                Packet::new_fragment(
+                    SourceRoutingHeader::empty_route(),
+                    self.cur_session_id,
+                    frag,
+                ),
+                id,
+            );
             trace!(target: format!("Node {}", self.node_id).as_str(), "Adding packet to txq: {x:?}");
             self.tx_queue_packets.push_back(x);
         }
         trace!(target: format!("Node {}", self.node_id).as_str(),  "Marking fragments for sending: {fragments:?}");
-        self.sent_fragments.insert(self.cur_session_id, (id, fragments));
+        self.sent_fragments
+            .insert(self.cur_session_id, (id, fragments));
     }
-    
+
     fn handle_packet(&mut self, packet: Packet, from_shortcut: bool) {
         match packet.pack_type {
             PacketType::MsgFragment(ref frag) => self.pkt_msgfragment(&packet, from_shortcut, frag),
             PacketType::Ack(ref ack) => self.pkt_ack(&packet, from_shortcut, ack),
             PacketType::Nack(ref nack) => self.pkt_nack(&packet, from_shortcut, nack),
-            PacketType::FloodRequest(ref req) => self.pkt_floodrequest(&packet, from_shortcut, &mut req.clone()),
-            PacketType::FloodResponse(ref res) => self.pkt_floodresponse(&packet, from_shortcut, &mut res.clone()),
+            PacketType::FloodRequest(ref req) => {
+                self.pkt_floodrequest(&packet, from_shortcut, &mut req.clone())
+            }
+            PacketType::FloodResponse(ref res) => {
+                self.pkt_floodresponse(&packet, from_shortcut, &mut res.clone())
+            }
         }
     }
     fn remove_sender(&mut self, node_id: NodeId) {
@@ -173,4 +189,3 @@ where
         self.flood_flag = true;
     }
 }
-

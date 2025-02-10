@@ -1,14 +1,13 @@
 use itertools::Itertools;
+use log::{error, trace};
 use petgraph::algo::astar;
 use petgraph::prelude::DiGraphMap;
 use std::collections::HashMap;
-use log::{trace, error};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::NodeType::Drone;
 use wg_2024::packet::{FloodRequest, FloodResponse, NodeType, Packet};
-#[allow(clippy::cast_possible_truncation)]
-#[allow(clippy::cast_precision_loss)]
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct RoutingHelper {
     pub cur_flood_id: u64,
@@ -27,7 +26,7 @@ pub struct NodeInfo {
 impl RoutingHelper {
     #[must_use]
     pub fn new(node_id: NodeId, node_type: NodeType) -> Self {
-        RoutingHelper {
+        Self {
             cur_flood_id: 1,
             topology_graph: DiGraphMap::new(),
             node_data: HashMap::new(),
@@ -41,7 +40,7 @@ impl RoutingHelper {
         node_type: NodeType,
         neighbors: Vec<NodeId>,
     ) -> Self {
-        let mut helper = RoutingHelper::new(node_id, node_type);
+        let mut helper = Self::new(node_id, node_type);
         for neighbor in neighbors {
             helper.topology_graph.add_edge(node_id, neighbor, 1.0);
             helper.node_data.insert(
@@ -57,6 +56,7 @@ impl RoutingHelper {
         helper
     }
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn generate_source_routing_header(
         &self,
         src: NodeId,
@@ -67,27 +67,19 @@ impl RoutingHelper {
             src,
             |finish| finish == dst,
             |e| {
-                let a_pdr = {
-                    if let Some(node) = self.node_data.get(&e.0) {
-                        node.dropped_packets as f64
-                            / (node.acked_packets + node.dropped_packets + 1) as f64
-                    } else {
-                        1.0
-                    }
-                };
-                let b_pdr = {
-                    if let Some(node) = self.node_data.get(&e.1) {
-                        node.dropped_packets as f64
-                            / (node.acked_packets + node.dropped_packets + 1) as f64
-                    } else {
-                        1.0
-                    }
-                };
+                let a_pdr = self.node_data.get(&e.0).map_or(1.0, |node| {
+                    node.dropped_packets as f64
+                        / (node.acked_packets + node.dropped_packets + 1) as f64
+                });
+                let b_pdr = self.node_data.get(&e.1).map_or(1.0, |node| {
+                    node.dropped_packets as f64
+                        / (node.acked_packets + node.dropped_packets + 1) as f64
+                });
                 a_pdr + b_pdr
             },
             |_| 0f64,
         ) {
-            trace!(target: format!("Node {}", self.node_id).as_str(), "Generated SRH {src} -> {dst}: {:?}", path.1.clone());
+            trace!(target: format!("Node {}", self.node_id).as_str(), "Generated SRH {src} -> {dst}: {:?}", path.1);
             Some(SourceRoutingHeader::new(path.1, 0))
         } else {
             None
@@ -109,9 +101,9 @@ impl RoutingHelper {
         self.node_data.remove(&node_id);
         self.topology_graph.remove_node(node_id);
     }
-    pub fn generate_flood_requests(&mut self, neighbors: Vec<NodeId>) -> Vec<(Packet, NodeId)> {
+    pub fn generate_flood_requests(&mut self, neighbors: &[NodeId]) -> Vec<(Packet, NodeId)> {
         let mut packets = Vec::new();
-        for neighbor in &neighbors {
+        for neighbor in neighbors {
             let header = SourceRoutingHeader::new(vec![self.node_id, *neighbor], 1);
             packets.push((
                 Packet::new_flood_request(
