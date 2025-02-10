@@ -36,7 +36,7 @@ pub type HandlerFunction<C, E, H> = Box<dyn FnOnce(&mut PacketHandler<C, E, H>)>
 pub trait CommandHandler<C, E> {
     fn get_node_type() -> NodeType;
 
-    /// Returns a Vec<(NodeId, Vec<Fragment>)> to add to the tx and fragment queue
+    /// Returns a `Vec<(NodeId, Vec<Fragment>)>` to add to the tx and fragment queue
     /// Every element in the vector is a list of fragments to send to the corresponding node
     /// The second element is the list of events to be sent to the controller
     fn handle_protocol_message(&mut self, message: ChatMessage) -> (Vec<(NodeId, ChatMessage)>, Vec<E>)
@@ -92,7 +92,7 @@ where
             routing_helper: RoutingHelper::new_with_neighbors(
                 id,
                 H::get_node_type(),
-                packet_send.keys().cloned().collect(),
+                packet_send.keys().copied().collect(),
             ),
             node_id: id,
             controller_send,
@@ -101,9 +101,9 @@ where
             packet_send,
             seen_flood_ids: RingBuffer::with_capacity(1024),
             handler: H::new(id),
-            tx_queue_packets: Default::default(),
-            sent_fragments: Default::default(),
-            rx_queue: Default::default(),
+            tx_queue_packets: VecDeque::default(),
+            sent_fragments: HashMap::default(),
+            rx_queue: HashMap::default(),
             flood_flag: true,
             cur_session_id: 1,
         }
@@ -125,7 +125,7 @@ where
     }
     
     fn send_msg(&mut self, msg: ChatMessage, id: NodeId) {
-        let fragments = fragment::fragment(msg);
+        let fragments = fragment::fragment(&msg);
         self.cur_session_id += 1;
         for frag in fragments.clone() {
             let x = (Packet::new_fragment(
@@ -143,7 +143,7 @@ where
     fn handle_packet(&mut self, packet: Packet, from_shortcut: bool) {
         match packet.pack_type {
             PacketType::MsgFragment(ref frag) => self.pkt_msgfragment(&packet, from_shortcut, frag),
-            PacketType::Ack(ref ack) => self.pkt_ack(&packet, from_shortcut, &ack),
+            PacketType::Ack(ref ack) => self.pkt_ack(&packet, from_shortcut, ack),
             PacketType::Nack(ref nack) => self.pkt_nack(&packet, from_shortcut, nack),
             PacketType::FloodRequest(ref req) => self.pkt_floodrequest(&packet, from_shortcut, &mut req.clone()),
             PacketType::FloodResponse(ref res) => self.pkt_floodresponse(&packet, from_shortcut, &mut res.clone()),

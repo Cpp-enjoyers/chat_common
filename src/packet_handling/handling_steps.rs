@@ -55,7 +55,7 @@ where
         }
     }
     fn send_controller_events(&mut self, e: Vec<E>) {
-        for event in e.into_iter() {
+        for event in e {
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Sending to controller: {event:?}");
             let _ = self.controller_send.send(event);
         }
@@ -104,7 +104,7 @@ where
                 failed_sends.push((packet, node_id));
             }
         }
-        if failed_sends.len() > 0 {
+        if !failed_sends.is_empty() {
             trace!(target: format!("Node {}", self.node_id).as_str(), "Packets {failed_sends:?} failed to send, pushing in queue");
         }
         failed_sends
@@ -118,7 +118,7 @@ where
             self.flood_flag = false;
             let flood_req = self
                 .routing_helper
-                .generate_flood_requests(self.packet_send.keys().cloned().collect());
+                .generate_flood_requests(self.packet_send.keys().copied().collect());
             flood_req
                 .iter()
                 .for_each(|x| self.tx_queue_packets.push_back(x.clone()));

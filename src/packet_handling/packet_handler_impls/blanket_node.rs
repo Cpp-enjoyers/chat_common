@@ -29,7 +29,7 @@ where
         )
     }
     fn run(&mut self) {
-        self.run_node()
+        self.run_node();
     }
 }
 impl<H> Client for PacketHandler<CC, CE, H>
@@ -55,7 +55,7 @@ where
         )
     }
     fn run(&mut self) {
-        self.run_node()
+        self.run_node();
     }
 }
 impl<H: CommandHandler<CC, CE> + Send + std::fmt::Debug> Flooder for PacketHandler<CC, CE, H>

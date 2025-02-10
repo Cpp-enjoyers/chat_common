@@ -3,6 +3,7 @@ use log::{error, trace, warn};
 use wg_2024::network::SourceRoutingHeader;
 use wg_2024::packet::{Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet};
 use crate::packet_handling::{CommandHandler, PacketHandler};
+#[allow(clippy::cast_possible_truncation)]
 
 impl<C, E, H> PacketHandler<C, E, H>
 where
@@ -11,7 +12,7 @@ where
     H: CommandHandler<C, E> + Send + std::fmt::Debug,
     PacketHandler<C, E, H>: Flooder,
 {
-    pub(crate) fn pkt_floodresponse(&mut self, packet: &Packet, from_shortcut: bool, mut res: &mut FloodResponse) {
+    pub(crate) fn pkt_floodresponse(&mut self, packet: &Packet, from_shortcut: bool, res: &mut FloodResponse) {
         if !from_shortcut {
             trace!(target: format!("Node {}", self.node_id).as_str(),  "Updating routing table from header");
             self.routing_helper
@@ -21,7 +22,7 @@ where
         let tx = self.routing_helper.handle_flood_response(
             packet.routing_header.clone(),
             packet.session_id,
-            &mut res,
+            res,
         );
         for (packet, node_id) in tx {
             if let Some(x) = self.packet_send.get(&node_id) {
@@ -37,7 +38,7 @@ where
             if let Some(data) = self.routing_helper.node_data.get(&id) {
                 match data.node_type {
                     Some(typ) if typ != NodeType::Drone => {
-                        self.handler.add_node(id, typ).map(|x| to_send.push(x));
+                        if let Some(x) = self.handler.add_node(id, typ) { to_send.push(x) }
                     }
                     _ => {}
                 }

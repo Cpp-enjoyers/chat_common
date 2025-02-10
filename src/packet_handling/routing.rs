@@ -6,6 +6,8 @@ use log::{trace, error};
 use wg_2024::network::{NodeId, SourceRoutingHeader};
 use wg_2024::packet::NodeType::Drone;
 use wg_2024::packet::{FloodRequest, FloodResponse, NodeType, Packet};
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_precision_loss)]
 
 #[derive(Debug)]
 pub struct RoutingHelper {
@@ -23,6 +25,7 @@ pub struct NodeInfo {
     pub node_type: Option<NodeType>,
 }
 impl RoutingHelper {
+    #[must_use]
     pub fn new(node_id: NodeId, node_type: NodeType) -> Self {
         RoutingHelper {
             cur_flood_id: 1,
@@ -32,6 +35,7 @@ impl RoutingHelper {
             node_type,
         }
     }
+    #[must_use]
     pub fn new_with_neighbors(
         node_id: NodeId,
         node_type: NodeType,
@@ -52,6 +56,7 @@ impl RoutingHelper {
         }
         helper
     }
+    #[must_use]
     pub fn generate_source_routing_header(
         &self,
         src: NodeId,
