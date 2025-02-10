@@ -1,8 +1,6 @@
-use log::{info, trace};
 use crate::messages::ChatMessage;
 use prost::Message;
 use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
-#[allow(dead_code)]
 
 /// # Panics
 ///
@@ -24,15 +22,13 @@ use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
             data,
         });
     }
-    info!("Fragmented message {:?} - {:?}", message, fragments);
     fragments
 }
-#[allow(dead_code)]
+
 pub fn defragment(fragments: &Vec<Fragment>) -> Result<ChatMessage, prost::DecodeError> {
     let mut message_data: Vec<u8> = Vec::new();
     for fragment in fragments {
         message_data.extend_from_slice(&fragment.data[..fragment.length as usize]);
     }
-    info!("Defragmenting message {:?}", fragments);
     ChatMessage::decode(&message_data[..])
 }
