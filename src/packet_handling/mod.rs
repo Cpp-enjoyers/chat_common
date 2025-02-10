@@ -158,10 +158,10 @@ where
             PacketType::Ack(ref ack) => self.pkt_ack(&packet, from_shortcut, ack),
             PacketType::Nack(ref nack) => self.pkt_nack(&packet, from_shortcut, nack),
             PacketType::FloodRequest(ref req) => {
-                self.pkt_floodrequest(&packet, from_shortcut, &mut req.clone())
+                self.pkt_floodrequest(&packet, from_shortcut, &mut req.clone());
             }
             PacketType::FloodResponse(ref res) => {
-                self.pkt_floodresponse(&packet, from_shortcut, &mut res.clone())
+                self.pkt_floodresponse(&packet, from_shortcut, &mut res.clone());
             }
         }
     }

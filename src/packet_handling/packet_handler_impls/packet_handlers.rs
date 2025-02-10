@@ -50,7 +50,7 @@ where
                 match data.node_type {
                     Some(typ) if typ != NodeType::Drone => {
                         if let Some(x) = self.handler.add_node(id, typ) {
-                            to_send.push(x)
+                            to_send.push(x);
                         }
                     }
                     _ => {}
